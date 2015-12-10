@@ -1,0 +1,2 @@
+# FeedsReader
+RSS feeds aggregator
