@@ -22,7 +22,7 @@ public class BackgroundBean {
 	private FeedProcessor feedP;
 
 	/**
-	 * Updates all feeds at startup
+	 * Updates all feeds at startup 
 	 */
 	@PostConstruct
 	public void init(){
