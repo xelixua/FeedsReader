@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+ "-//Hibernate/Hibernate Mapping DTD//EN"
+ "http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd"> 
+<hibernate-mapping>
+	<class name="xyz.maksimenko.feedsreader.feedobject.Feed" table="feeds">
+		<id column="feedId" name="feedId" type="java.lang.Long">
+			<generator class="increment"/>
+		</id>
+		<property column="type" name="type" type="java.lang.Byte"/>
+		<property column="name" name="name" type="java.lang.String"/>
+		<property column="title" name="title" type="java.lang.String"/>
+		<property column="url" name="url" type="java.lang.String"/>
+		<property column="link" name="link" type="java.lang.String"/>
+		<property column="description" name="description" type="java.lang.String"/>
+		<property column="generator" name="generator" type="java.lang.String"/>
+		<property column="language" name="language" type="java.lang.Byte"/>
+		<property column="imageUrl" name="imageUrl" type="java.lang.String"/>
+		<property column="pubdate" name="pubdate" type="java.lang.Long"/>
+		<set name="categories" table="categories_feeds" lazy="false" cascade="all">
+			<key column="feedId"/>
+			<many-to-many column="categoryId" class="xyz.maksimenko.feedsreader.feedobject.Category"/>
+		</set>
+		<set name="feedItems" table="feeditems" lazy="false" cascade="all">
+			<key column="feedId"/>
+			<one-to-many class="xyz.maksimenko.feedsreader.feedobject.FeedItem"/>
+		</set>
+	</class>
+</hibernate-mapping>

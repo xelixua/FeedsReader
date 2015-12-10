@@ -1,0 +1,133 @@
+<! DOCTYPE html>
+<html ng-app="feedView">
+    <head>
+        <meta charset="UTF-8">
+		<title>FeedsReader</title>
+		<link href="styles/bootstrap-3.2.0-dist/css/bootstrap.css" rel="stylesheet">
+		<link href="styles/mystyles.css" rel="stylesheet">
+		<script src="scripts/jquery-1.11.2.min.js"></script>
+		<script src="scripts/bootstrap.js"></script>
+		<script src="scripts/bootstrap.min.js"></script>
+        <script src="scripts/angular.min.js"></script>
+        <script src="scripts/app.js"></script>
+    </head>
+    <body ng-controller="WebSocketController as ws">
+        <div class="page-header row">
+            <div class="col-md-2"></div>
+            <div class="col-md-10">
+                <h1>Feeds reader</h1>
+            </div>
+        </div>
+			<div class="row">
+				<div class="container">
+				<div class="col-md-2">
+					<div class="container">
+						<div ng-controller="userControllers as uControlls" >
+							<div id="menu"  ng-click="showhideControls()">
+								<span class="glyphicon glyphicon-align-justify" aria-hidden="true"></span>
+							</div>
+							
+							<div id="userControlsBlock" class="jumbotron" ng-show="uControlls.showControls">
+								<div id="autentifButtons" class="row">
+									<div class="container">
+										<div class="col-md-6">
+											<button class="btn btn-success" type="submit" ng-click="register()" ng-show="uControlls.loggedOut && uControlls.showSignUp">Sign up</button>
+										</div>
+										<div class="col-md-6" ng-show="uControlls.showSignIn">
+											<button id="loginButton" class="btn btn-primary" type="submit" ng-click="login()">{{uControlls.signin_title}}</button>
+										</div>
+									</div>
+									<br>
+								</div>
+								
+								<div id="loginGroup" ng-show="uControlls.loginClicked">
+									<input type="email" class="form-control" id="loginLogin" placeholder="Login">
+									<br>
+									<input type="email" class="form-control" id="loginPassword" placeholder="Password">
+									<br>
+									<button class="btn btn-primary" type="submit" ng-click="loginSend()">Login</button>
+								</div>
+								
+								<div id="registerGroup" ng-show="uControlls.registerClicked">
+									<input type="email" class="form-control" id="registerLogin" placeholder="Login">
+									<br>
+									<input type="email" class="form-control" id="registerName" placeholder="Full name">
+									<br>
+									<input type="email" class="form-control" id="registerPassword" placeholder="Password">
+									<br>
+									<button class="btn btn-primary" type="submit" ng-click="registerSend()">Register</button>
+								</div>
+								
+								<div id="feedControls" class="container" ng-show="!uControlls.loggedOut">
+									<hr>
+									<input type="email" class="form-control" id="feedUrl" placeholder="feedUrl">
+									<br>
+									<div id="addFeedButton">
+										<button class="btn btn-default" type="submit" ng-click="addFeed()">Add feed</button>
+									</div>
+									<br>
+									<div id="addFeedButton">
+										<button class="btn btn-default" type="submit" ng-click="removeFeed()">Remove feed</button>
+									</div>
+									<hr>
+									<input type="email" class="form-control" id="categoryName" placeholder="categoryName">
+									<br>
+									<div id="addFeedButton">
+										<button class="btn btn-default" type="submit" ng-click="addCategory()">Add category</button>
+									</div>
+									<br>
+									<div id="addFeedButton">
+										<button class="btn btn-default" type="submit" ng-click="removeCategory()">Remove category</button>
+									</div>
+								</div>
+							</div>
+							
+						</div>
+						<div  id="feeds" class="row" ng-controller="FeedController as feedMeta">
+							<div class="container">
+								<div class="col-md-2">
+									<br>
+									<ul class="list-group">
+										<li class="list-group-item" ng-repeat="category in feedMeta.categories">
+										<div class="checkbox">
+												<input type="checkbox" class="categoryCheckbox" category="{{category.title}}">
+										</div>
+										<div class="category_data"  ng-click="redrawFeeds($event, category.title)">
+											{{category.title}}
+												<ul class="list-group">
+													<li class="list-group-item" ng-repeat="feed in feedMeta.feeds" ng-show="feed.category == category.title">
+														<div class="checkbox">
+															<input type="checkbox" class="feedCheckbox" feed="{{feed.title}}" category="{{category.title}}">
+														</div>
+														<div class="feed_data" ng-click="redrawItems($event, feed.title)">
+															<span class="badge">{{feed.new_items}}</span>
+															{{feed.title}}
+														</div>
+													</li>
+												</ul>
+										</div>
+										</li>
+									</ul>
+								</div>
+							</div>
+						</div>
+					</div>
+				</div>
+				<div class="col-md-10 row">
+					<div class="container">
+						<div ng-controller="ItemsController as feedData">
+							<div class="jumbotron" ng-repeat="item in feedData.items">
+								<h2>{{item.title}}</h2>
+								<br>
+								<i>by {{item.author}}</i>
+								<br>
+								<p ng-bind-html="trustAsHtml(item.description)"></p>
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+			
+		</div>
+    </body>
+</html>

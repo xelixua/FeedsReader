@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!DOCTYPE hibernate-mapping PUBLIC 
+ "-//Hibernate/Hibernate Mapping DTD//EN"
+"http://www.hibernate.org/dtd/hibernate-mapping-3.0.dtd"> 
+<hibernate-mapping>
+	<class name="xyz.maksimenko.feedsreader.User" table="users">
+		<id column="userId" name="userId" type="java.lang.Long">
+			<generator class="increment"/>
+		</id>
+		<property column="login" name="login" type="java.lang.String"/>
+		<property column="name" name="name" type="java.lang.String"/>
+		<property column="passwordHash" name="passwordHash" type="java.lang.String"/>
+		<property column="openedCategory" name="openedCategory" type="java.lang.String"/>
+		<set name="categories" table="categories" lazy="false" cascade="all">
+			<key column="userId"/>
+			<one-to-many class="xyz.maksimenko.feedsreader.feedobject.Category"/>
+		</set>
+	</class>
+</hibernate-mapping>
