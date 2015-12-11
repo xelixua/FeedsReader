@@ -4,7 +4,7 @@ import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Date;
 
-public class FeedItem{
+public class FeedItem implements Comparable<FeedItem>{
 	private Long itemId;
 	private String title;
 	private String guid;
@@ -122,6 +122,14 @@ public class FeedItem{
 
 	public void setTitle(String title) {
 		this.title = title;
+	}
+
+	@Override
+	public int compareTo(FeedItem o) {
+		long pb2 = o.getPubdate();
+		if(pubdate < pb2) return 1; 
+		else if(pubdate > pb2) return -1;
+		else return 0;
 	}
 	
 }
