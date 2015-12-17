@@ -4,11 +4,17 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
+import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.sql.SQLException;
+import java.util.Calendar;
 import java.util.List;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.Stack;
+import java.util.TreeSet;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import javax.annotation.PostConstruct;
@@ -27,26 +33,27 @@ import xyz.maksimenko.util.ParserFactory;
 
 @Stateless
 public class FeedProcessorBean  implements FeedProcessor{
-	private final Long DEFAULT_FEED_ID = 1L;
-	private final byte UPDATE_INTERVAL = 5; //minutes
+	private final byte UPDATE_INTERVAL = 10; //minutes
+	private final byte OLD_THRESHOLD = 120; //hours
 
-	/**
-	 * periodical automatic update of all feeds in datebase
-	 */	
 	
 	public FeedProcessorBean(){
 		System.out.println("Hello from feed Processor bean!");
 	}
 	
-	@Schedule(second="0", minute="*/10", hour="*")
+	/**
+	 *	Runs regular update for all feeds
+	*/
+	@Schedule(second="0", minute="*/" + UPDATE_INTERVAL, hour="*")
 	@SuppressWarnings("unchecked")
 	public void updateFeeds() {
 		//select all distinct feeds from database
 		System.out.println("Updating feeds");
 		FeedDAO dao = DAOfactory.getInstance().getFeedDAO();
 		try {
-			List<String> feedUrls = (List<String>) dao.getAllDistinctFeeds((byte) 0);
-			updateFeeds(feedUrls);
+			//List<String> feedUrls = (List<String>) dao.getAllDistinctFeeds((byte) 0);
+			List<Feed> feeds = (List<Feed>) dao.getAllFeeds();
+			updateFeeds(feeds);
 		} catch (SQLException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
@@ -61,7 +68,7 @@ public class FeedProcessorBean  implements FeedProcessor{
 	 */
 	public Feed processFeed(String feedUrl){
 		ProcessedFeed pf = fetchFeed(feedUrl);
-		return (Feed) ParserFactory.getInstance().getParser(((String) pf.getData()).substring(0, 100)).parse(pf).getData();
+		return (Feed) ParserFactory.getInstance().getParser(((String) pf.getData()).substring(0, 1000)).parse(pf).getData();
 	}
 	
 	/**
@@ -69,16 +76,49 @@ public class FeedProcessorBean  implements FeedProcessor{
 	 * @param feedUrls
 	 * @param parser
 	 */
-	public List<ProcessedFeed> updateFeeds(List<String> feedUrls){
-		return feedUrls.stream().map(url -> fetchFeed(url))
-				.map(data -> ParserFactory.getInstance().getParser(((String) data.getData()).substring(0, 100)).parse(data))
-				.peek(etalonFeed -> storeToDb(etalonFeed))
+	public List<ProcessedFeed> updateFeeds(List<Feed> feeds){
+		deleteOldItems();
+		return feeds.stream().map(feed -> fetchFeed(feed)) //fetching feed
+				.map(pF -> {	//processing processedFeed
+						try {
+							String feedSource = (String) ((ProcessedFeed) pF).getData();
+							 ((ProcessedFeed) pF).setData(ParserFactory.getInstance().getParser(pF).parse(feedSource));
+							 return pF;
+						} catch (NullPointerException e) {
+							e.printStackTrace();
+							Stack<String> encodings = new Stack<String>();
+						} catch (StringIndexOutOfBoundsException e) {
+							System.out.println("Wrong answer from server");
+						}
+						return null;
+					})
+				.peek(pF -> { //storing
+					Feed etalonFeed = (Feed) ((ProcessedFeed) pF).getData();
+					if(etalonFeed != null) storeToDb(pF);
+					})
 				.collect(Collectors.toList());
 	}
 	
 	/**
-	 * stores feedItems to database for correct feedId
+	 * Deletes feed items older then OLD_THREShOLD
 	 * @param feed
+	 */
+	
+	private void deleteOldItems(){
+		System.out.println("Deleting old feedItems");
+		Long currentTime = Calendar.getInstance().getTimeInMillis(),
+				threshold = currentTime - OLD_THRESHOLD * 3600 * 1000;
+		try {
+			DAOfactory.getInstance().getFeedItemDAO().deleteOldItems(threshold);
+		} catch (SQLException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	/**
+	 * Stores new feed items to database
+	 * @param processedFeed
 	 */
 	@SuppressWarnings("unchecked")
 	private void storeToDb(ProcessedFeed processedFeed){
@@ -86,36 +126,62 @@ public class FeedProcessorBean  implements FeedProcessor{
 		Feed feed = (Feed) processedFeed.getData();
 		String feedUrl = processedFeed.getFeedUrl();
 		FeedItemDAO dao = DAOfactory.getInstance().getFeedItemDAO();
-		Set<FeedItem> feedItems = feed.getFeedItems();
-		try {
+		SortedSet<FeedItem> feedItems = feed.getFeedItems();
+		feed.setUrl(feedUrl);
+		//try {
 			//finds all real feed records with such stores messages for every feedId
-			Feed specificFeed = (Feed) DAOfactory.getInstance().getFeedDAO().getFeedByUrl(feedUrl);
-			feedItems = feedItems.stream().map(item -> {item.setFeedId(specificFeed.getFeedId()); return item;}).collect(Collectors.toSet());
-			feedItems.forEach(feedItem -> {
-				String guid = feedItem.getGuid();
+			//Feed specificFeed = (Feed) DAOfactory.getInstance().getFeedDAO().getFeedByUrl(feedUrl);
+			Feed specificFeed = processedFeed.getTempFeed();
+			feed.setFeedId(specificFeed.getFeedId());
+			Supplier<TreeSet<FeedItem>> supplier = () -> new TreeSet<FeedItem>();
+			System.out.println("ALL:" + feedItems.size());
+			feedItems = feedItems.stream()
+					.filter(item-> /*!(specificFeed.getFeedItems().contains(item)*/!specificFeed.getGuids().contains(item.getGuid()))
+					.map(item -> {item.setFeedId(specificFeed.getFeedId()); return item;})
+					.collect(Collectors.toCollection(supplier));
+			System.out.println("NEW:" + feedItems.size());
+			if(feedItems.size() > 0) {
+				specificFeed.getFeedItems().addAll(feedItems);
 				try {
-					//it's a new item, store it to db
-					FeedItem item;
-					if((item = dao.getFeedItemByGuid(guid)) != null){
-						dao.deleteFeedItem(item);
-					}
-				} catch (Exception e) {
-				// TODO Auto-generated catch block
+					DAOfactory.getInstance().getFeedDAO().updateFeed(specificFeed);
+				} catch (SQLException e) {
+					// TODO Auto-generated catch block
 					e.printStackTrace();
 				}
-			});
-			specificFeed.setFeedItems(feedItems);
-			DAOfactory.getInstance().getFeedDAO().updateFeed(specificFeed);
-		} catch (SQLException e1) {
+			} /*else {
+				if(!feed.equals(specificFeed)){
+					System.out.println(feed);
+					System.out.println(specificFeed);
+					SortedSet<FeedItem> specificItems = specificFeed.getFeedItems();
+					Feed sF = feed;
+					sF.setFeedItems(specificItems);
+					DAOfactory.getInstance().getFeedDAO().updateFeed(sF);
+				}
+			}*/
+		/*} catch (SQLException e1) {
 			// TODO Auto-generated catch block
 			e1.printStackTrace();
-		}
+		}*/
 	}
 	
 	/**
-	 * Fetces feed data from network
+	 * Fetches feed data from network by feed. Used for regular updates
+	 * @param feed
+	 * @return container with this feed and fetched data
+	 * @throws NullPointerException
+	 */
+	private ProcessedFeed fetchFeed(Feed feed) throws NullPointerException{
+		String feedUrl = feed.getUrl();
+		ProcessedFeed result = fetchFeed(feedUrl);
+		result.setTempFeed(feed);
+		return result;
+		
+	}
+	
+	/**
+	 * Fetces feed data from network by url. User for new feeds
 	 * @param feedUrl
-	 * @return
+	 * @return container with fetching data
 	 * @throws NullPointerException
 	 */
 	private ProcessedFeed fetchFeed(String feedUrl) throws NullPointerException{

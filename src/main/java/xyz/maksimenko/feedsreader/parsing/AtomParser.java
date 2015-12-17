@@ -86,6 +86,7 @@ public class AtomParser implements FeedParser {
 				
 				
 				feed = new Feed();
+				feed.setType((byte) 1); //Atom
 				feed.setDescription(description);
 				feed.setImageUrl(logoUrl);
 				feed.setLanguage((byte) 0);

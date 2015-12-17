@@ -8,6 +8,7 @@ import java.io.PrintWriter;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Locale;
+import java.util.Stack;
 
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
@@ -39,33 +40,57 @@ public class RSSParser implements FeedParser {
 	}
 	
 	@Override
+	public ProcessedFeed parse(ProcessedFeed processedFeed) {
+		String s_data = (String) processedFeed.getData();
+		processedFeed.setData(parse(s_data));
+		return processedFeed;
+	}
+	
+	@Override
 	public Feed parse(String data) {
 		System.out.println("Parsing feed");
+		Stack<String> encodings = new Stack<String>();
 		Feed feed = null;
 		String pubDate, language, link, generator;
 		DocumentBuilderFactory docBuildFactory;
 		DocumentBuilder docBuild;
-		Document feedData;
+		Document feedData = null;
 		Element imageElement;
 		NodeList items;
 		FeedItem feedItem;
 		short i;
 		SimpleDateFormat sdf = new SimpleDateFormat("EEE,dd MMM yyyy HH:mm:ss z", Locale.getDefault());
+		boolean toContinue = true;
+		
+		encodings.push("UTF-8");
+		/*encodings.push("UTF-16");
+		encodings.push("UTF-16BE");
+		encodings.push("UTF-16LE");
+		encodings.push("US-ASCII");
+		encodings.push("Cp1251");
+		encodings.push("KOI8_R");*/
+		
 
 		docBuildFactory = DocumentBuilderFactory.newInstance();
 		try {
 			docBuild = docBuildFactory.newDocumentBuilder();
 			try {
-				try {
-					feedData = docBuild.parse(new InputSource(new ByteArrayInputStream(data.replace("\uFEFF", "").getBytes("utf-8"))));
-				}
-				catch (SAXParseException e) {
+				String encoding;
+				data = data.replace("\uFEFF", "");
+				while(!encodings.isEmpty() && toContinue){
+					encoding = encodings.pop();
 					try {
-						feedData = docBuild.parse(new InputSource(new ByteArrayInputStream(data.getBytes("utf-16BE"))));
-					} catch (SAXParseException e1) {
-						feedData = docBuild.parse(new InputSource(new ByteArrayInputStream(data.getBytes("utf-16LE"))));
+						feedData = docBuild.parse(new InputSource(new ByteArrayInputStream(data.getBytes(encoding))));
+						toContinue = false;
+						break;
+					} catch (Exception e){
+						System.out.println("Cannot read data in " + encoding + " encoding");
 					}
 				}
+				if(feedData == null){
+					System.out.println("NULL");
+				}
+				
 				imageElement = (Element) feedData.getElementsByTagName("image").item(0);
 				try {
 					language = feedData.getElementsByTagName("language").item(0).getTextContent();
@@ -81,6 +106,7 @@ public class RSSParser implements FeedParser {
 				}
 				
 				feed = new Feed();
+				feed.setType((byte) 0); //RSS
 				feed.setDescription(feedData.getElementsByTagName("description").item(0).getTextContent());
 				if(imageElement != null){
 					feed.setImageUrl(imageElement.getElementsByTagName("url").item(0).getTextContent());
@@ -113,9 +139,6 @@ public class RSSParser implements FeedParser {
 				System.out.println("NEW ITEMS: " + i);
 				//return rssItems;
 				
-			} catch (SAXException | IOException e) {
-				// TODO Auto-generated catch block
-				e.printStackTrace();
 			} catch (ParseException e) {
 				// TODO Auto-generated catch block
 				e.printStackTrace();
@@ -126,13 +149,6 @@ public class RSSParser implements FeedParser {
 		}
 		
 		return feed;
-	}
-
-	@Override
-	public ProcessedFeed parse(ProcessedFeed processedFeed) {
-		String s_data = (String) processedFeed.getData();
-		processedFeed.setData(parse(s_data));
-		return processedFeed;
 	}
 
 	@Override

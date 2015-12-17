@@ -5,6 +5,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.SortedSet;
 
 import org.hibernate.Query;
 import org.hibernate.Session;
@@ -50,11 +51,16 @@ public class FeedDAOImpl implements FeedDAO {
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
 			session.beginTransaction();
-			System.out.println("Saving feed with Id: " + feed.getFeedId());
 			session.update(feed);
 			session.getTransaction().commit();
+			
+		/*} catch (ConstraintViolationException e){
+			session.close();
+			feed = getFeedByUrl(feed.getUrl());
+			DAOfactory.getInstance().getFeedItemDAO().deleteAllItemsForFeed(feed);
+			updateFeed(feed);*/
 		} catch (Exception e) {
-			e.printStackTrace();
+			e.printStackTrace(); 
 		}
 			finally {
 			if(session != null && session.isOpen()){
@@ -99,15 +105,32 @@ public class FeedDAOImpl implements FeedDAO {
 	}
 
 	@Override
+	public Collection getAllFeeds() throws SQLException {
+		Session session = null;
+		List feeds = null;
+		try {
+			session = HibernateUtil.getSessionFactory().openSession();
+			feeds = session.createCriteria(Feed.class).list();
+		} catch (Exception e){
+			System.out.println("Cannot get all feeds " + e);
+		} finally {
+			if(session != null && session.isOpen()){
+				session.close();
+			}
+		}
+		return feeds;
+	}
+	
+	/*@Override
 	public Collection getAllDistinctFeeds(byte feedType) throws SQLException {
 		Session session = null;
 		List feeds = null;
 		try {
 			session = HibernateUtil.getSessionFactory().openSession();
-			/*feeds = session.createCriteria(Feed.class).setProjection(
-					Projections.projectionList().
-					add(Projections.distinct(Projections.property("url"))).
-					add(Projections.property("type"), String.valueOf(feedType))).list();*/
+			//feeds = session.createCriteria(Feed.class).setProjection(
+				//	Projections.projectionList().
+//					add(Projections.distinct(Projections.property("url"))).
+					//add(Projections.property("type"), String.valueOf(feedType))).list();
 			Map<String, Byte> wheres = new HashMap<String, Byte>();
 			wheres.put("type", feedType);
 			feeds = session.createCriteria(Feed.class).add(Restrictions.allEq(wheres)).setProjection(Projections.groupProperty("url")).list();
@@ -119,7 +142,7 @@ public class FeedDAOImpl implements FeedDAO {
 			}
 		}
 		return feeds;
-	}
+	}*/
 
 	@SuppressWarnings("unchecked")
 	@Override

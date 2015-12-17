@@ -10,17 +10,19 @@ import java.net.URL;
 import java.util.Calendar;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.SortedSet;
+import java.util.TreeSet;
 
 import javax.json.JsonObject;
 import javax.persistence.EnumType;
 import javax.persistence.Enumerated;
 
 //general abstract class for getting JSON of feed
-public class Feed{
+public class Feed implements Comparable<Feed>{
 	
 	private Long feedId;
 	private String title;
-	private byte type;
+	private byte type = 127;
 	private String name;
 	private String url;
 	private String link;
@@ -31,7 +33,7 @@ public class Feed{
 	private String imageUrl;
 	
 	private Set categories = new HashSet<FeedItem>();
-	private Set feedItems = new HashSet<FeedItem>();
+	private SortedSet feedItems = new TreeSet<FeedItem>();
 	
 	public Feed(){
 		
@@ -86,6 +88,14 @@ public class Feed{
 			e.printStackTrace();
 			return "";
 		}
+	}
+	
+	public Set<String> getGuids(){
+		Set<String> result = new HashSet<String>();
+		for(Object item : feedItems){
+			result.add(((FeedItem) item).getGuid());
+		}
+		return result;
 	}
 
 	private JsonObject feedObject;
@@ -163,11 +173,11 @@ public class Feed{
 		this.feedObject = feedObject;
 	}
 
-	public Set getFeedItems() {
+	public SortedSet getFeedItems() {
 		return feedItems;
 	}
 
-	public void setFeedItems(Set feedItems) {
+	public void setFeedItems(SortedSet feedItems) {
 		this.feedItems = feedItems;
 	}
 
@@ -205,5 +215,10 @@ public class Feed{
 
 	public void setCategories(Set categories) {
 		this.categories = categories;
+	}
+
+	@Override
+	public int compareTo(Feed o) {
+		return title.compareTo(o.getTitle());
 	}
 }
